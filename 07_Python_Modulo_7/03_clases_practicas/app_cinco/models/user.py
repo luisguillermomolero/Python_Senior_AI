@@ -27,7 +27,7 @@ class User(Base):
         comment="Fecha y hora de la creación del usuario"
     )
     
-    update_at = Column(
+    updated_at = Column(
         DateTime(timezone=True),
         onupdate=func.now(),
         comment="Fecha y hora de la última actualización"
@@ -44,7 +44,23 @@ class User(Base):
         # username: luis_molero2025, luis-molero2025, luismolero2025
         if not username.replace('_','').replace('-', '').isalnum(): # luismolero2025
             raise ValueError("El username solo puede tener caracteres alfabeticos, números, guiones, guiones bajos")
-        return username.lower().trip()
-
-
-        
+        return username.lower().strip()
+    
+    @validates('hashed_password')
+    def validate_hashed_password(self, key, hashed_password):
+        if not hashed_password:
+            raise ValueError ("La contraseña hasheada no puede estar vacia")
+        return hashed_password
+    
+    def __repr__(self):
+        return f"<User(id={self.id}, username='{self.username}')>"
+    
+    def to_dict(self):
+        return{
+            'id': self.id,
+            'username': self.username,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    
