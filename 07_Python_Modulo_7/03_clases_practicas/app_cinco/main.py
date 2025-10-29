@@ -49,3 +49,29 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Error interno del servidor"}
     )
 
+app.include_router(user_router, prefix="/api/v1")
+
+def main():
+    import uvicorn
+    import webbrowser
+    from threading import Timer
+    
+    host = "127.0.0.1"
+    port = 8000
+    
+    def open_browser():
+        webbrowser.open(f"http://{host}:{port}/docs")
+        
+    Timer(1.5, open_browser).start()
+    
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=True,
+        log_level="info"
+    )
+    
+if __name__ == "__main__":
+    main()
+
