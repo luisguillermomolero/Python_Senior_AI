@@ -1,0 +1,207 @@
+{% extends 'core/base.html' %} {% block content %}
+<h1>Lista de Tareas</h1>
+<div id="alert-placeholder"></div>
+<button class="btn btn-primary mb-3" id="btn-new">Nueva tarea</button>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Título</th>
+      <th>Completada</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody id="tasks-body"></tbody>
+</table>
+
+<div class="modal fade" id="taskModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Nueva tarea</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <form id="taskForm">
+          <input type="hidden" id="taskId" />
+          <div class="mb-3">
+            <label for="title">Título</label>
+            <input id="title" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label for="description">Descripción</label>
+            <textarea id="description" class="form-control"></textarea>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="completed" class="form-check-input" />
+            <label class="form-check-label" for="completed">Completada</label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cerrar
+        </button>
+        <button type="button" class="btn btn-primary" id="saveBtn">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // 🔹 URL base de la API REST (definida en Django REST Framework)
+  // Aquí apuntamos al endpoint /api/tasks/ para consumir los datos
+  const apiBase = "/api/tasks/";
+
+  // ==============================================================
+  // 🧩 Función para obtener todas las tareas (READ)
+  // ==============================================================
+  async function fetchTasks() {
+    // Realiza una petición GET a la API
+    const res = await fetch(apiBase);
+    // Convierte la respuesta a formato JSON
+    const data = await res.json();
+
+    // Selecciona el cuerpo de la tabla donde se mostrarán las tareas
+    const body = document.getElementById("tasks-body");
+    // Limpia el contenido previo antes de renderizar nuevamente
+    body.innerHTML = "";
+
+    // Recorre todas las tareas recibidas desde el backend
+    data.forEach((t) => {
+      // Crea una fila <tr> para la tabla
+      const tr = document.createElement("tr");
+      // Inserta el contenido HTML de la fila con los datos de la tarea
+      tr.innerHTML = `
+      <td>${t.id}</td>
+      <td>${t.title}</td>
+      <td>${t.completed ? "Sí" : "No"}</td>
+      <td>
+        <button class="btn btn-sm btn-info" onclick="editTask(${
+          t.id
+        })">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteTask(${
+          t.id
+        })">Eliminar</button>
+      </td>`;
+      // Agrega la fila al cuerpo de la tabla
+      body.appendChild(tr);
+    });
+  }
+
+  // ==============================================================
+  // 🧩 Crear nueva tarea (CREATE)
+  // ==============================================================
+  async function createTask(payload) {
+    await fetch(apiBase, {
+      method: "POST", // Método HTTP POST para crear
+      headers: { "Content-Type": "application/json" }, // Indicamos formato JSON
+      body: JSON.stringify(payload), // Convertimos el objeto a JSON
+    });
+  }
+
+  // ==============================================================
+  // 🧩 Actualizar una tarea existente (UPDATE)
+  // ==============================================================
+  async function updateTask(id, payload) {
+    await fetch(`${apiBase}${id}/`, {
+      method: "PUT", // Método HTTP PUT para actualizar
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ==============================================================
+  // 🧩 Eliminar tarea (DELETE)
+  // ==============================================================
+  async function deleteTask(id) {
+    // Confirma antes de eliminar
+    if (!confirm("¿Eliminar tarea?")) return;
+    await fetch(`${apiBase}${id}/`, { method: "DELETE" });
+    // Vuelve a cargar la lista de tareas
+    fetchTasks();
+  }
+
+  // ==============================================================
+  // 🧩 Mostrar alertas temporales (Bootstrap)
+  // ==============================================================
+  function showAlert(message, type = "success") {
+    const p = document.getElementById("alert-placeholder");
+    // Inserta un mensaje de alerta dinámico en el contenedor
+    p.innerHTML = `<div class="alert alert-${type}" role="alert">${message}</div>`;
+    // Borra el mensaje después de 3 segundos
+    setTimeout(() => (p.innerHTML = ""), 3000);
+  }
+
+  // ==============================================================
+  // 🧩 Manejo del modal (Bootstrap)
+  // ==============================================================
+  const modal = new bootstrap.Modal(document.getElementById("taskModal"));
+
+  // Cuando se hace clic en el botón “Nueva tarea”
+  document.getElementById("btn-new").addEventListener("click", () => {
+    document.getElementById("modalTitle").innerText = "Nueva tarea"; // Cambia título del modal
+    document.getElementById("taskId").value = ""; // Limpia ID
+    document.getElementById("taskForm").reset(); // Limpia formulario
+    modal.show(); // Muestra el modal
+  });
+
+  // ==============================================================
+  // 🧩 Cargar datos en el modal para editar tarea existente
+  // ==============================================================
+  async function editTask(id) {
+    const res = await fetch(`${apiBase}${id}/`); // Pide datos de la tarea
+    const t = await res.json(); // Convierte la respuesta en JSON
+
+    // Rellena los campos del formulario con los datos existentes
+    document.getElementById("taskId").value = t.id;
+    document.getElementById("title").value = t.title;
+    document.getElementById("description").value = t.description;
+    document.getElementById("completed").checked = t.completed;
+
+    document.getElementById("modalTitle").innerText = "Editar tarea"; // Cambia título del modal
+    modal.show(); // Muestra el modal
+  }
+
+  // ==============================================================
+  // 🧩 Guardar tarea (crear o actualizar)
+  // ==============================================================
+  document.getElementById("saveBtn").addEventListener("click", async () => {
+    // Obtiene el ID (vacío si es una tarea nueva)
+    const id = document.getElementById("taskId").value;
+
+    // Construye el objeto de datos a enviar
+    const payload = {
+      title: document.getElementById("title").value,
+      description: document.getElementById("description").value,
+      completed: document.getElementById("completed").checked,
+    };
+
+    try {
+      // Si hay ID → actualizar, si no → crear nueva
+      if (id) await updateTask(id, payload);
+      else await createTask(payload);
+
+      modal.hide(); // Cierra el modal
+      showAlert("Guardado correctamente"); // Muestra mensaje de éxito
+      fetchTasks(); // Recarga la lista
+    } catch (err) {
+      showAlert("Error al guardar", "danger"); // Muestra mensaje de error
+    }
+  });
+
+  // ==============================================================
+  // 🧩 Inicialización
+  // Llama a fetchTasks() apenas se carga la página
+  // ==============================================================
+  fetchTasks();
+</script>
+{% endblock %}
